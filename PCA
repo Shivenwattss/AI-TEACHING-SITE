@@ -1,0 +1,578 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+
+# =====================================================
+# PAGE CONFIG
+# =====================================================
+
+st.set_page_config(
+    page_title="AI PCA Visualizer",
+    layout="wide"
+)
+
+st.title("AI PCA Visualizer")
+
+
+# =====================================================
+# SIDEBAR CONTROLS
+# =====================================================
+
+st.sidebar.header("Dataset Controls")
+
+NUM_POINTS = 100
+st.sidebar.info("Number of Points: 100 (fixed)")
+
+noise_sigma = st.sidebar.slider("Noise σ", 0.1, 5.0, 1.2)
+
+outlier_rate = st.sidebar.slider("Outlier Rate %", 0, 30, 0)
+
+n_features = st.sidebar.slider(
+    "Number of Features",
+    2, 6, 4,
+    help="How many original features (columns) to generate. PCA will reduce these."
+)
+
+n_components = st.sidebar.slider(
+    "PCA Components to Keep",
+    1,
+    6,
+    2,
+    help="How many principal components to retain. Must be ≤ Number of Features."
+)
+
+# clamp components to features
+n_components = min(n_components, n_features)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Standardize before PCA?**")
+do_standardize = st.sidebar.checkbox(
+    "Standardize (z-score) first",
+    value=True,
+    help="Always recommended — without it, features with larger ranges dominate the components."
+)
+
+
+# =====================================================
+# STEP 1 — DATA GENERATION
+# =====================================================
+
+st.subheader("Step 1 — Raw Dataset")
+st.caption(
+    "A synthetic dataset with correlated features. Features share underlying structure "
+    "so PCA can find meaningful axes."
+)
+
+FIXED_SEED = 42
+np.random.seed(FIXED_SEED)
+
+# Generate correlated features by sharing a latent base
+latent = np.random.normal(50, 10, NUM_POINTS)
+
+feature_data = {}
+for i in range(n_features):
+    np.random.seed(FIXED_SEED + i)
+    loading   = np.random.uniform(0.5, 1.5)           # how strongly tied to latent
+    offset    = np.random.uniform(-10, 10)             # feature-specific shift
+    feat_noise = np.random.normal(0, noise_sigma, NUM_POINTS)
+    col = loading * latent + offset + feat_noise
+    col = np.clip(col, 0.1, None)                      # all positive
+    feature_data[f"Feature_{i+1}"] = col
+
+df = pd.DataFrame(feature_data)
+
+# Add outliers
+num_outliers = int((outlier_rate / 100) * NUM_POINTS)
+np.random.seed(FIXED_SEED + 99)
+outlier_indices = np.random.choice(NUM_POINTS, num_outliers, replace=False) if num_outliers > 0 else []
+for idx in outlier_indices:
+    col_pick = np.random.randint(0, n_features)
+    df.iloc[idx, col_pick] = df.iloc[idx, col_pick] * 3.5
+
+# Raw stats
+st.markdown("**📊 Raw Feature Statistics**")
+stat_cols = st.columns(n_features)
+for i, col in enumerate(df.columns):
+    stat_cols[i].metric(
+        col,
+        f"μ={df[col].mean():.2f}  σ={df[col].std():.2f}",
+        help=f"Min={df[col].min():.2f}  Max={df[col].max():.2f}"
+    )
+
+# Raw data table
+with st.expander("📋 View Raw Data Table"):
+    st.dataframe(df.round(3), use_container_width=True)
+
+
+# =====================================================
+# STEP 2 — STANDARDIZATION
+# =====================================================
+
+st.markdown("---")
+st.subheader("Step 2 — Standardization")
+
+if do_standardize:
+    st.info(
+        "**Why standardize?** PCA finds directions of maximum variance. "
+        "If Feature_1 ranges 0–1000 and Feature_2 ranges 0–1, PCA will almost entirely follow Feature_1 "
+        "— not because it's more important, but because it's bigger. "
+        "Z-score scaling (subtract mean, divide by std) puts every feature on equal footing."
+    )
+    scaler = StandardScaler()
+    X = scaler.fit_transform(df)
+    df_scaled = pd.DataFrame(X, columns=df.columns)
+
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        st.markdown("**Before standardization — feature means:**")
+        before_cols = st.columns(n_features)
+        for i, col in enumerate(df.columns):
+            before_cols[i].metric(col, f"{df[col].mean():.3f}")
+    with sc2:
+        st.markdown("**After standardization — all means → 0, std → 1:**")
+        after_cols = st.columns(n_features)
+        for i, col in enumerate(df_scaled.columns):
+            after_cols[i].metric(col, f"{df_scaled[col].mean():.3f}  (std={df_scaled[col].std():.3f})")
+
+else:
+    st.warning(
+        "⚠️ Skipping standardization. Features with larger absolute values will dominate "
+        "the principal components regardless of their actual importance."
+    )
+    X = df.values
+    df_scaled = df.copy()
+
+with st.expander("📋 View Standardized Data Table"):
+    st.dataframe(df_scaled.round(4), use_container_width=True)
+
+
+# =====================================================
+# STEP 3 — COVARIANCE MATRIX
+# =====================================================
+
+st.markdown("---")
+st.subheader("Step 3 — Covariance Matrix")
+st.info(
+    "**What is the covariance matrix?** It shows how every pair of features varies together. "
+    "A high positive value means both features tend to increase together. "
+    "Near zero means no relationship. PCA uses this matrix to find the directions of greatest spread."
+)
+
+cov_matrix = np.cov(X.T)
+cov_df = pd.DataFrame(
+    cov_matrix,
+    columns=df.columns,
+    index=df.columns
+).round(4)
+
+# Heatmap of covariance matrix
+fig_cov = go.Figure(
+    go.Heatmap(
+        z=cov_df.values,
+        x=list(cov_df.columns),
+        y=list(cov_df.index),
+        colorscale="RdBu_r",
+        zmid=0,
+        text=cov_df.values.round(3),
+        texttemplate="%{text}",
+        showscale=True
+    )
+)
+fig_cov.update_layout(
+    template="plotly_dark",
+    height=350,
+    title="Covariance Matrix — diagonal = variance of each feature, off-diagonal = covariance between pairs"
+)
+st.plotly_chart(fig_cov, use_container_width=True)
+st.caption(
+    "🔴 Red = strong positive covariance (move together) · "
+    "🔵 Blue = strong negative covariance (move opposite) · "
+    "⬜ Near-zero = no linear relationship"
+)
+
+with st.expander("📋 View Covariance Matrix Table"):
+    st.dataframe(cov_df, use_container_width=True)
+
+
+# =====================================================
+# STEP 4 — EIGENVALUES & EIGENVECTORS
+# =====================================================
+
+st.markdown("---")
+st.subheader("Step 4 — Eigenvalues & Eigenvectors")
+st.info(
+    "**Eigenvectors** are the new axes (principal components) — directions in feature space "
+    "along which the data varies the most.\n\n"
+    "**Eigenvalues** measure how much variance each eigenvector captures. "
+    "A larger eigenvalue = that direction explains more of the data's spread.\n\n"
+    "PCA ranks eigenvectors by their eigenvalues — PC1 has the largest, PC2 the second largest, and so on."
+)
+
+eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+
+# Sort descending
+sort_idx     = np.argsort(eigenvalues)[::-1]
+eigenvalues  = eigenvalues[sort_idx]
+eigenvectors = eigenvectors[:, sort_idx]
+
+explained_variance_ratio = eigenvalues / eigenvalues.sum()
+cumulative_variance      = np.cumsum(explained_variance_ratio)
+
+# Eigenvalue metrics
+st.markdown("**Eigenvalues (variance captured per component):**")
+eig_cols = st.columns(n_features)
+for i in range(n_features):
+    eig_cols[i].metric(
+        f"PC{i+1}",
+        f"{eigenvalues[i]:.4f}",
+        f"{explained_variance_ratio[i]*100:.1f}% variance",
+        help=f"Cumulative: {cumulative_variance[i]*100:.1f}%"
+    )
+
+# Scree plot only
+fig_scree = go.Figure()
+
+fig_scree.add_trace(
+    go.Bar(
+        x=[f"PC{i+1}" for i in range(n_features)],
+        y=eigenvalues,
+        marker_color=["cyan" if i < n_components else "gray" for i in range(n_features)],
+        name="Eigenvalue"
+    )
+)
+
+fig_scree.update_layout(
+    template="plotly_dark",
+    height=380,
+    showlegend=False,
+    title="Scree Plot — Eigenvalue per Component",
+    xaxis_title="Principal Component",
+    yaxis_title="Eigenvalue"
+)
+st.plotly_chart(fig_scree, use_container_width=True)
+st.caption(
+    "🟦 Cyan bars = components you are keeping · ⬜ Gray bars = components being discarded. "
+    "The elbow in the scree plot shows the natural cut-off point."
+)
+
+# Eigenvector / loadings table
+st.markdown("**Eigenvectors (Loadings) — how much each original feature contributes to each PC:**")
+loading_df = pd.DataFrame(
+    eigenvectors,
+    index=df.columns,
+    columns=[f"PC{i+1}" for i in range(n_features)]
+).round(4)
+
+def color_loadings(val):
+    if val > 0.3:
+        return "background-color: #003366; color: white"
+    elif val < -0.3:
+        return "background-color: #660000; color: white"
+    return ""
+
+st.dataframe(
+    loading_df.style.map(color_loadings),
+    use_container_width=True
+)
+st.caption(
+    "🔵 Strong positive loading · 🔴 Strong negative loading · "
+    "Near-zero = feature barely contributes to that component"
+)
+
+
+# =====================================================
+# STEP 5 — PCA TRANSFORM (project onto components)
+# =====================================================
+
+st.markdown("---")
+st.subheader("Step 5 — PCA Transform")
+st.info(
+    f"**Projection:** Each data point is projected onto the top {n_components} principal component(s). "
+    "This is a dot product of the standardized data with the selected eigenvectors. "
+    f"The result is a new dataset with {n_components} column(s) instead of {n_features}, "
+    "retaining as much variance as possible."
+)
+
+pca = PCA(n_components=n_components)
+X_pca = pca.fit_transform(X)
+
+pc_cols  = [f"PC{i+1}" for i in range(n_components)]
+df_pca   = pd.DataFrame(X_pca, columns=pc_cols)
+
+# Variance retained
+variance_kept = pca.explained_variance_ratio_.sum() * 100
+variance_lost = 100 - variance_kept
+
+v1, v2, v3 = st.columns(3)
+v1.metric("Components kept",   f"{n_components} / {n_features}")
+v2.metric("Variance retained", f"{variance_kept:.2f}%")
+v3.metric("Variance lost",     f"{variance_lost:.2f}%",
+          delta=f"-{variance_lost:.2f}%",
+          delta_color="inverse")
+
+# Per-component explained variance
+st.markdown("**Explained variance per retained component:**")
+ev_cols = st.columns(n_components)
+for i in range(n_components):
+    ev_cols[i].metric(
+        f"PC{i+1}",
+        f"{pca.explained_variance_ratio_[i]*100:.2f}%"
+    )
+
+
+# =====================================================
+# STEP 6 — PICK A POINT
+# =====================================================
+
+st.markdown("---")
+raw_input = st.text_input(
+    "🔍 Enter a point index (0 – 99) to highlight on all charts and in the table:",
+    value="0",
+    placeholder="e.g. 42"
+)
+
+try:
+    picked_idx = int(raw_input)
+    if picked_idx < 0 or picked_idx >= NUM_POINTS:
+        st.error(f"⚠️ Index must be between 0 and {NUM_POINTS - 1}. Defaulting to 0.")
+        picked_idx = 0
+except ValueError:
+    st.error("⚠️ Please enter a whole number. Defaulting to 0.")
+    picked_idx = 0
+
+is_outlier = picked_idx in set(outlier_indices)
+st.markdown(
+    f"Point #{picked_idx}: {'🔴 **outlier**' if is_outlier else '🟢 **normal point**'}"
+)
+
+# Metric strip — original vs PCA coords
+st.markdown(f"**Point #{picked_idx} — original features vs PCA coordinates:**")
+orig_cols = st.columns(n_features)
+for i, col in enumerate(df.columns):
+    orig_cols[i].metric(f"Original {col}", f"{df.iloc[picked_idx, i]:.4f}")
+
+pca_metric_cols = st.columns(n_components)
+for i in range(n_components):
+    pca_metric_cols[i].metric(f"PC{i+1}", f"{df_pca.iloc[picked_idx, i]:.4f}")
+
+
+# =====================================================
+# STEP 7 — VISUALIZATIONS
+# =====================================================
+
+st.markdown("---")
+st.subheader("Step 6 — Visualizations")
+
+outlier_set = set(outlier_indices)
+
+# ── 2D scatter of PC1 vs PC2 (always shown) ──────────
+st.markdown("**PC1 vs PC2 Scatter — the two directions of greatest variance**")
+
+colors = ["red" if i in outlier_set else "cyan" for i in range(NUM_POINTS)]
+sizes  = [14 if i in outlier_set else 8 for i in range(NUM_POINTS)]
+
+fig_2d = go.Figure()
+
+fig_2d.add_trace(go.Scatter(
+    x=df_pca["PC1"],
+    y=df_pca["PC2"] if n_components >= 2 else [0] * NUM_POINTS,
+    mode="markers",
+    name="data points",
+    marker=dict(color=colors, size=sizes)
+))
+
+pc2_y_picked = float(df_pca["PC2"].iloc[picked_idx]) if n_components >= 2 else 0
+
+fig_2d.add_trace(go.Scatter(
+    x=[df_pca["PC1"].iloc[picked_idx]],
+    y=[pc2_y_picked],
+    mode="markers",
+    name=f"selected (#{picked_idx})",
+    marker=dict(color="yellow", size=18, symbol="star")
+))
+
+pc2_title  = f"PC2  ({pca.explained_variance_ratio_[1]*100:.1f}% variance)" if n_components >= 2 else "PC2 (not computed)"
+main_title = (
+    f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%) vs PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)"
+    if n_components >= 2
+    else f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%) — only 1 component kept"
+)
+
+fig_2d.update_layout(
+    template="plotly_dark",
+    height=500,
+    title=main_title,
+    xaxis_title=f"PC1  ({pca.explained_variance_ratio_[0]*100:.1f}% variance)",
+    yaxis_title=pc2_title,
+)
+
+st.plotly_chart(fig_2d, use_container_width=True)
+st.caption(
+    "🔵 Cyan = normal · 🔴 Red = outlier · ⭐ Yellow star = your selected point. "
+    "The spread along PC1 is always wider than PC2 — that's what PCA guarantees."
+)
+
+# ── 3D scatter if ≥ 3 components ─────────────────────
+if n_components >= 3:
+    st.markdown("**PC1 vs PC2 vs PC3 — 3D view**")
+    fig_3d = go.Figure()
+
+    fig_3d.add_trace(go.Scatter3d(
+        x=df_pca["PC1"],
+        y=df_pca["PC2"],
+        z=df_pca["PC3"],
+        mode="markers",
+        name="data",
+        marker=dict(color=colors, size=[s/2 for s in sizes], opacity=0.8)
+    ))
+
+    fig_3d.add_trace(go.Scatter3d(
+        x=[df_pca["PC1"].iloc[picked_idx]],
+        y=[df_pca["PC2"].iloc[picked_idx]],
+        z=[df_pca["PC3"].iloc[picked_idx]],
+        mode="markers",
+        name=f"selected (#{picked_idx})",
+        marker=dict(color="yellow", size=8, symbol="diamond")
+    ))
+
+    fig_3d.update_layout(
+        template="plotly_dark",
+        height=550,
+        title="3D PCA Space — PC1, PC2, PC3",
+        scene=dict(
+            xaxis_title=f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)",
+            yaxis_title=f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)",
+            zaxis_title=f"PC3 ({pca.explained_variance_ratio_[2]*100:.1f}%)"
+        )
+    )
+    st.plotly_chart(fig_3d, use_container_width=True)
+
+# ── Loadings / biplot bar chart ───────────────────────
+st.markdown("**Component Loadings — which original features drive each PC**")
+
+fig_load = go.Figure()
+colors_load = ["cyan", "orange", "green", "magenta", "yellow", "red"]
+
+for i in range(min(n_components, 3)):      # show up to 3 PCs for clarity
+    fig_load.add_trace(go.Bar(
+        name=f"PC{i+1}",
+        x=df.columns.tolist(),
+        y=pca.components_[i],
+        marker_color=colors_load[i]
+    ))
+
+fig_load.update_layout(
+    template="plotly_dark",
+    barmode="group",
+    height=380,
+    title="Loadings — positive bar = feature pushes point in + direction along that PC",
+    xaxis_title="Original Feature",
+    yaxis_title="Loading Weight"
+)
+fig_load.add_hline(y=0, line_color="white", line_width=1)
+
+st.plotly_chart(fig_load, use_container_width=True)
+st.caption(
+    "A large positive bar means the feature strongly contributes in the positive direction of that PC. "
+    "A large negative bar means the opposite. Near-zero = feature barely matters for that PC."
+)
+
+
+# =====================================================
+# STEP 8 — RECONSTRUCTION & ERROR
+# =====================================================
+
+st.markdown("---")
+st.subheader("Step 7 — Reconstruction Error")
+st.info(
+    "**What is reconstruction error?** After projecting to fewer dimensions, we can project back "
+    "to the original space. The difference between the reconstructed point and the original point "
+    "is the information lost by discarding the dropped components. "
+    "Higher error = that point was harder to represent in fewer dimensions."
+)
+
+X_reconstructed = pca.inverse_transform(X_pca)
+recon_error      = np.mean((X - X_reconstructed) ** 2, axis=1)   # MSE per point
+df_recon         = pd.DataFrame(X_reconstructed, columns=df.columns)
+
+# Reconstruction error scatter
+fig_err = go.Figure()
+
+err_colors = ["red" if i in outlier_set else "cyan" for i in range(NUM_POINTS)]
+
+fig_err.add_trace(go.Scatter(
+    x=list(range(NUM_POINTS)),
+    y=recon_error,
+    mode="markers",
+    name="reconstruction error",
+    marker=dict(color=err_colors, size=8)
+))
+
+fig_err.add_trace(go.Scatter(
+    x=[picked_idx],
+    y=[recon_error[picked_idx]],
+    mode="markers",
+    name=f"selected (#{picked_idx})",
+    marker=dict(color="yellow", size=16, symbol="star")
+))
+
+fig_err.add_hline(
+    y=recon_error.mean(),
+    line_dash="dash", line_color="rgba(255,255,255,0.4)",
+    annotation_text="mean error",
+    annotation_position="top right"
+)
+
+fig_err.update_layout(
+    template="plotly_dark",
+    height=400,
+    title="Per-Point Reconstruction Error (MSE) — how much info was lost for each point",
+    xaxis_title="Point Index",
+    yaxis_title="MSE"
+)
+
+st.plotly_chart(fig_err, use_container_width=True)
+st.caption(
+    "🔴 Red = outlier · ⭐ Yellow = selected. "
+    "Outliers typically have higher reconstruction error because they lie far from the main structure PCA captures."
+)
+
+# Error stats
+e1, e2, e3, e4 = st.columns(4)
+e1.metric("Mean Error",          f"{recon_error.mean():.5f}")
+e2.metric("Max Error",           f"{recon_error.max():.5f}")
+e3.metric(f"Error at #{picked_idx}", f"{recon_error[picked_idx]:.5f}")
+e4.metric("Components kept",     f"{n_components}/{n_features}  →  {variance_kept:.1f}% variance")
+
+
+# =====================================================
+# FULL COMPARISON TABLE
+# =====================================================
+
+st.markdown("---")
+st.subheader("📋 Full Data Table — Original vs PCA Coordinates vs Reconstruction Error")
+st.caption("🟡 Yellow = selected point · 🔴 Dark red = outlier")
+
+table_df = df.copy().round(4)
+for i in range(n_components):
+    table_df[f"PC{i+1}"] = df_pca[f"PC{i+1}"].round(4)
+table_df["Recon Error (MSE)"] = recon_error.round(6)
+
+def highlight_table(row):
+    idx = row.name
+    if idx == picked_idx:
+        return ["background-color: #3a3a00; color: yellow"] * len(row)
+    if idx in outlier_set:
+        return ["background-color: #2d0000"] * len(row)
+    return [""] * len(row)
+
+styled_table = table_df.style.apply(highlight_table, axis=1)
+st.dataframe(styled_table, use_container_width=True, height=400)
+
+st.markdown("**Legend:** 🟡 Yellow = selected point · 🔴 Dark red = outlier")
