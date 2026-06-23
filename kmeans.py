@@ -1,10 +1,10 @@
-def run_kmeans():
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-
+def run_kmeans():
+    st.title("K-Means Clustering")
 FIXED_POINTS = np.array([
     [1.4, 4.6], [2.6, 5.4], [1.7, 5.6], [2.8, 4.5], [1.5, 5.2],
     [2.3, 4.3], [1.9, 5.8], [2.5, 5.1], [1.6, 4.8], [2.2, 5.7],
