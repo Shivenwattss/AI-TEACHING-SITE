@@ -4,7 +4,6 @@ import plotly.graph_objects as go
 import time
 
 def run_dbscan():
-
     st.set_page_config(page_title="DBSCAN Visualizer", layout="wide")
 # ══════════════════════════════════════════════════════════════════════════════
 # CUSTOM CSS
