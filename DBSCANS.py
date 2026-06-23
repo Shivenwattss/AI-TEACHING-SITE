@@ -1,13 +1,11 @@
-def run_dbscan():
-    import streamlit as st
+import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 import time
 
+def run_dbscan():
 
-st.set_page_config(page_title="DBSCAN Visualizer", layout="wide")
-
-
+    st.set_page_config(page_title="DBSCAN Visualizer", layout="wide")
 # ══════════════════════════════════════════════════════════════════════════════
 # CUSTOM CSS
 # ══════════════════════════════════════════════════════════════════════════════
