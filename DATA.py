@@ -1,3 +1,4 @@
+from prompt_toolkit import choice
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -229,29 +230,29 @@ stat_max   = raw_data.max()
 st.subheader("📊 Dataset Statistics (pre-normalization — same values used for outlier detection)")
 
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Mean",     f"{stat_mean:.3f}")
-c2.metric("Median",   f"{stat_median:.3f}")
-c3.metric("Std Dev",  f"{stat_std:.3f}")
-c4.metric("Q1 (25%)", f"{stat_q1:.3f}")
-c5.metric("Q3 (75%)", f"{stat_q3:.3f}")
+c1.metric("Mean",     f"{stat_mean:.1f}")
+c2.metric("Median",   f"{stat_median:.1f}")
+c3.metric("Std Dev",  f"{stat_std:.1f}")
+c4.metric("Q1 (25%)", f"{stat_q1:.1f}")
+c5.metric("Q3 (75%)", f"{stat_q3:.1f}")
 
 # ── Row 2: fence values ────────────────────────────
 if outlier_method == "IQR x1.5":
     st.markdown("**IQR Fence Values** — a point is flagged if it falls outside these bounds:")
     f1, f2, f3 = st.columns(3)
-    f1.metric("IQR", f"{stat_iqr:.3f}")
-    f2.metric("Lower Fence (Q1 − 1.5×IQR)", f"{iqr_lower:.3f}",
+    f1.metric("IQR", f"{stat_iqr:.1f}")
+    f2.metric("Lower Fence (Q1 − 1.5×IQR)", f"{iqr_lower:.1f}",
               help="Points BELOW this are flagged")
-    f3.metric("Upper Fence (Q3 + 1.5×IQR)", f"{iqr_upper:.3f}",
+    f3.metric("Upper Fence (Q3 + 1.5×IQR)", f"{iqr_upper:.1f}",
               help="Points ABOVE this are flagged")
 
 elif outlier_method == "z > 2.5":
     st.markdown("**Z-Score Fence Values** — a point is flagged if its z-score is beyond ±2.5:")
     f1, f2, f3 = st.columns(3)
-    f1.metric("Std Dev", f"{stat_std:.3f}")
-    f2.metric("Lower Fence (mean − 2.5×std)", f"{z_lower:.3f}",
+    f1.metric("Std Dev", f"{stat_std:.1f}")
+    f2.metric("Lower Fence (mean − 2.5×std)", f"{z_lower:.1f}",
               help="Points BELOW this are flagged")
-    f3.metric("Upper Fence (mean + 2.5×std)", f"{z_upper:.3f}",
+    f3.metric("Upper Fence (mean + 2.5×std)", f"{z_upper:.1f}",
               help="Points ABOVE this are flagged")
 
 
@@ -269,9 +270,9 @@ elif normalization_method == "z-score":
     st.markdown("**📐 Z-Score (clipped to [−2.5, +2.5]) — How it works on YOUR data:**")
     n1, n2, n3, n4 = st.columns(4)
     n1.metric("Formula", "clip((x − mean) / std, −2.5, 2.5)")
-    n2.metric("Mean used", f"{stat_mean:.3f}")
-    n3.metric("Std used", f"{stat_std:.3f}")
-    n4.metric(f"Example: {example_raw} →", f"{example_out:.3f}")
+    n2.metric("Mean used", f"{stat_mean:.1f}")
+    n3.metric("Std used", f"{stat_std:.1f}")
+    n4.metric(f"Example: {example_raw} →", f"{example_out:.1f}")
     st.caption("✅ Clipping to ±2.5 means extreme outliers are capped rather than dominating the scale.")
 
 elif normalization_method == "robust scaler":
@@ -279,9 +280,9 @@ elif normalization_method == "robust scaler":
     st.markdown("**📐 Robust Scaler — How it works on YOUR data:**")
     n1, n2, n3, n4 = st.columns(4)
     n1.metric("Formula", "(x − median) / IQR")
-    n2.metric("Median used", f"{stat_median:.3f}")
-    n3.metric("IQR used", f"{stat_iqr:.3f}")
-    n4.metric(f"Example: {example_raw} →", f"{example_out:.3f}")
+    n2.metric("Median used", f"{stat_median:.1f}")
+    n3.metric("IQR used", f"{stat_iqr:.1f}")
+    n4.metric(f"Example: {example_raw} →", f"{example_out:.1f}")
     st.caption("✅ Outliers don't affect median or IQR much — robust to extreme values.")
 
 elif normalization_method == "min-max":
@@ -289,10 +290,10 @@ elif normalization_method == "min-max":
     st.markdown("**📐 Min-Max — How it works on YOUR data:**")
     n1, n2, n3, n4, n5 = st.columns(5)
     n1.metric("Formula", "(x − min) / (max − min)")
-    n2.metric("Min used", f"{stat_min:.3f}")
-    n3.metric("Max used", f"{stat_max:.3f}")
-    n4.metric("Range", f"{stat_max - stat_min:.3f}")
-    n5.metric(f"Example: {example_raw} →", f"{example_out:.3f}")
+    n2.metric("Min used", f"{stat_min:.1f}")
+    n3.metric("Max used", f"{stat_max:.1f}")
+    n4.metric("Range", f"{stat_max - stat_min:.1f}")
+    n5.metric(f"Example: {example_raw} →", f"{example_out:.1f}")
     st.caption("⚠️ One extreme outlier becomes 0 or 1, squishing ALL normal points into a tiny range.")
 
 elif normalization_method == "log":
@@ -305,15 +306,15 @@ elif normalization_method == "log":
     st.markdown("**📐 Log Transform — How it works on YOUR data:**")
     n1, n2, n3, n4, n5, n6 = st.columns(6)
     n1.metric("Formula",             "ln(x)")
-    n2.metric("Raw range",           f"{stat_min:.3f} → {stat_max:.3f}",
+    n2.metric("Raw range",           f"{stat_min:.1f} → {stat_max:.1f}",
               help="Min and max of the raw (pre-transform) data")
-    n3.metric("Log output min",      f"{log_out_min:.3f}",
-              help=f"ln({stat_min:.3f}) — smallest transformed value")
-    n4.metric("Log output max",      f"{log_out_max:.3f}",
-              help=f"ln({stat_max:.3f}) — largest transformed value")
-    n5.metric("Log mean / std",      f"{log_out_mean:.3f} / {log_out_std:.3f}",
+    n3.metric("Log output min",      f"{log_out_min:.1f}",
+              help=f"ln({stat_min:.1f}) — smallest transformed value")
+    n4.metric("Log output max",      f"{log_out_max:.1f}",
+              help=f"ln({stat_max:.1f}) — largest transformed value")
+    n5.metric("Log mean / std",      f"{log_out_mean:.1f} / {log_out_std:.1f}",
               help="Mean and std of the log-transformed data")
-    n6.metric(f"Example: {example_raw} →", f"{example_out:.3f}",
+    n6.metric(f"Example: {example_raw} →", f"{example_out:.1f}",
               help="ln(median raw value)")
     st.caption("✅ Compresses right-skewed data. All raw values are ≥ 5, so ln(x) is always defined and positive.")
 
@@ -381,9 +382,25 @@ _filled_all = df_processed["Data"].fillna(df_processed["Data"].mean())
 _iqr_val = _filled_all.quantile(0.75) - _filled_all.quantile(0.25)
 st.subheader("📈 Original Dataset")
 st.plotly_chart(fig, use_container_width=True)
+auto_graph = None
+
+if outlier_method == "IQR x1.5":
+    auto_graph = "IQR Plot"
+
+elif outlier_method == "z > 2.5":
+    auto_graph = "Z-Score Plot"
+
+elif normalization_method == "robust scaler":
+    auto_graph = "Robust Scaler"
+
+elif normalization_method == "min-max":
+    auto_graph = "Min-Max"
+
+elif normalization_method == "log":
+    auto_graph = "Log Transform"
 
 st.markdown("---")
-st.subheader("📊 Additional Visualizations")
+st.subheader("🔍 Explore Other Visualizations")
 
 graph_choice = st.selectbox(
     "Choose a visualization",
@@ -400,204 +417,220 @@ graph_choice = st.selectbox(
 # VISUALIZATION PANEL
 # =====================================================
 
-if graph_choice == "None":
-    pass
+def render_graph(choice):
 
-elif graph_choice == "Z-Score Plot":
+    if choice == "None":
+        return
 
-    st.subheader("📉 Z-Score Visualization")
+    elif choice == "Z-Score Plot":
 
-    z_colors = ["red" if abs(z) > 2.5 else "cyan" for z in all_z_scores]
+        st.subheader("📉 Z-Score Visualization")
 
-    fig_z = go.Figure()
+        z_colors = ["red" if abs(z) > 2.5 else "cyan" for z in all_z_scores]
 
-    fig_z.add_trace(
-        go.Scatter(
-            x=list(range(NUM_POINTS)),
-            y=all_z_scores.values,
-            mode="markers",
-            marker=dict(color=z_colors, size=8),
-            name="Z-Score"
+        fig_z = go.Figure()
+
+        fig_z.add_trace(
+            go.Scatter(
+                x=list(range(NUM_POINTS)),
+                y=all_z_scores.values,
+                mode="markers",
+                marker=dict(color=z_colors, size=8),
+                name="Z-Score"
+            )
         )
-    )
 
-    fig_z.add_hline(y=2.5, line_dash="dash", line_color="orange")
-    fig_z.add_hline(y=-2.5, line_dash="dash", line_color="orange")
-    fig_z.add_hline(y=0, line_dash="dot", line_color="gray")
+        fig_z.add_hline(y=2.5, line_dash="dash", line_color="orange")
+        fig_z.add_hline(y=-2.5, line_dash="dash", line_color="orange")
+        fig_z.add_hline(y=0, line_dash="dot", line_color="gray")
 
-    fig_z.update_layout(
-        template="plotly_dark",
-        height=400,
-        title="Z-Score Plot",
-        xaxis_title="Index",
-        yaxis_title="Z-Score"
-    )
-
-    st.plotly_chart(fig_z, use_container_width=True)
-
-elif graph_choice == "IQR Plot":
-
-    st.subheader("📉 IQR Outlier Visualization")
-
-    fig_iqr = go.Figure()
-
-    colors = [
-        "red" if (v < iqr_lower or v > iqr_upper) else "cyan"
-        for v in df_processed["Data"]
-    ]
-
-    fig_iqr.add_trace(
-        go.Scatter(
-            x=list(range(NUM_POINTS)),
-            y=df_processed["Data"],
-            mode="markers",
-            marker=dict(color=colors, size=8),
-            name="Data"
+        fig_z.update_layout(
+            template="plotly_dark",
+            title="Z-Score Plot",
+            height=450,
+            xaxis_title="Index",
+            yaxis_title="Z-Score"
         )
-    )
 
-    fig_iqr.add_hline(
-        y=iqr_upper,
-        line_dash="dash",
-        line_color="orange",
-        annotation_text="Upper Fence"
-    )
+        st.plotly_chart(fig_z, use_container_width=True)
 
-    fig_iqr.add_hline(
-        y=iqr_lower,
-        line_dash="dash",
-        line_color="orange",
-        annotation_text="Lower Fence"
-    )
+    elif choice == "IQR Plot":
 
-    fig_iqr.update_layout(
-        template="plotly_dark",
-        title="IQR Outlier Detection",
-        height=450,
-        xaxis_title="Index",
-        yaxis_title="Value"
-    )
+        st.subheader("📉 IQR Outlier Visualization")
 
-    st.plotly_chart(fig_iqr, use_container_width=True)
+        fig_iqr = go.Figure()
 
-elif graph_choice == "Robust Scaler":
+        colors = [
+            "red" if (v < iqr_lower or v > iqr_upper) else "cyan"
+            for v in df_processed["Data"]
+        ]
 
-    st.subheader("🛡 Robust Scaler")
-
-    fig_r = go.Figure()
-
-    robust_values = (_filled_all - _filled_all.median()) / _iqr_val if _iqr_val != 0 else _filled_all - _filled_all.median()
-
-    colors = [
-        "red" if i in outliers.index else "cyan"
-        for i in range(NUM_POINTS)
-    ]
-
-    fig_r.add_trace(
-        go.Scatter(
-            x=list(range(NUM_POINTS)),
-            y=robust_values,
-            mode="markers",
-            marker=dict(
-                color=colors,
-                size=8
-            ),
-            name="Robust Scaler"
+        fig_iqr.add_trace(
+            go.Scatter(
+                x=list(range(NUM_POINTS)),
+                y=df_processed["Data"],
+                mode="markers",
+                marker=dict(color=colors, size=8),
+                name="Data"
+            )
         )
-    )
 
-    fig_r.add_hline(
-        y=0,
-        line_dash="dash",
-        line_color="orange",
-        annotation_text="Median"
-    )
-
-    fig_r.update_layout(
-        template="plotly_dark",
-        title="Robust Scaler",
-        height=450,
-        xaxis_title="Index",
-        yaxis_title="Scaled Value"
-    )
-
-    st.plotly_chart(fig_r, use_container_width=True)
-
-elif graph_choice == "Min-Max":
-
-    st.subheader("📏 Min-Max Normalization")
-
-    minmax = (_filled_all - _filled_all.min()) / (_filled_all.max() - _filled_all.min()) if _filled_all.max() != _filled_all.min() else _filled_all - _filled_all.min()
-
-    colors = [
-        "red" if i in outliers.index else "cyan"
-        for i in range(NUM_POINTS)
-    ]
-
-    fig_m = go.Figure()
-
-    fig_m.add_trace(
-        go.Scatter(
-            x=list(range(NUM_POINTS)),
-            y=minmax,
-            mode="markers",
-            marker=dict(
-                color=colors,
-                size=8
-            ),
-            name="Min-Max"
+        fig_iqr.add_hline(
+            y=iqr_upper,
+            line_dash="dash",
+            line_color="orange",
+            annotation_text="Upper Fence"
         )
-    )
 
-    fig_m.update_layout(
-        template="plotly_dark",
-        title="Min-Max Normalization",
-        height=450,
-        xaxis_title="Index",
-        yaxis_title="Scaled Value"
-    )
-
-    st.plotly_chart(fig_m, use_container_width=True)
-
-    st.caption("🔴 Red points are outliers detected before normalization.")
-
-elif graph_choice == "Log Transform":
-
-    st.subheader("📉 Log Transformation")
-
-    log_data = np.log(_filled_all)
-
-    colors = [
-        "red" if i in outliers.index else "cyan"
-        for i in range(NUM_POINTS)
-    ]
-
-    fig_l = go.Figure()
-
-    fig_l.add_trace(
-        go.Scatter(
-            x=list(range(NUM_POINTS)),
-            y=log_data,
-            mode="markers",
-            marker=dict(
-                color=colors,
-                size=8
-            ),
-            name="Log Transform"
+        fig_iqr.add_hline(
+            y=iqr_lower,
+            line_dash="dash",
+            line_color="orange",
+            annotation_text="Lower Fence"
         )
-    )
 
-    fig_l.update_layout(
-        template="plotly_dark",
-        title="Log Transformation",
-        height=450,
-        xaxis_title="Index",
-        yaxis_title="ln(x)"
-    )
+        fig_iqr.update_layout(
+            template="plotly_dark",
+            title="IQR Outlier Detection",
+            height=450,
+            xaxis_title="Index",
+            yaxis_title="Value"
+        )
 
-    st.plotly_chart(fig_l, use_container_width=True)
+        st.plotly_chart(fig_iqr, use_container_width=True)
 
-    st.caption("🔴 Red points are outliers detected before transformation.")
+    elif choice == "Robust Scaler":
+
+        st.subheader("🛡 Robust Scaler")
+
+        robust_values = (
+            (_filled_all - _filled_all.median()) / _iqr_val
+            if _iqr_val != 0
+            else _filled_all - _filled_all.median()
+        )
+
+        colors = [
+            "red" if i in outliers.index else "cyan"
+            for i in range(NUM_POINTS)
+        ]
+
+        fig_r = go.Figure()
+
+        fig_r.add_trace(
+            go.Scatter(
+                x=list(range(NUM_POINTS)),
+                y=robust_values,
+                mode="markers",
+                marker=dict(color=colors, size=8),
+                name="Robust Scaler"
+            )
+        )
+
+        fig_r.add_hline(
+            y=0,
+            line_dash="dash",
+            line_color="orange",
+            annotation_text="Median"
+        )
+
+        fig_r.update_layout(
+            template="plotly_dark",
+            title="Robust Scaler",
+            height=450,
+            xaxis_title="Index",
+            yaxis_title="Scaled Value"
+        )
+
+        st.plotly_chart(fig_r, use_container_width=True)
+
+    elif choice == "Min-Max":
+
+        st.subheader("📏 Min-Max Normalization")
+
+        minmax = (
+            (_filled_all - _filled_all.min())
+            / (_filled_all.max() - _filled_all.min())
+            if _filled_all.max() != _filled_all.min()
+            else _filled_all - _filled_all.min()
+        )
+
+        colors = [
+            "red" if i in outliers.index else "cyan"
+            for i in range(NUM_POINTS)
+        ]
+
+        fig_m = go.Figure()
+
+        fig_m.add_trace(
+            go.Scatter(
+                x=list(range(NUM_POINTS)),
+                y=minmax,
+                mode="markers",
+                marker=dict(color=colors, size=8),
+                name="Min-Max"
+            )
+        )
+
+        fig_m.update_layout(
+            template="plotly_dark",
+            title="Min-Max Normalization",
+            height=450,
+            xaxis_title="Index",
+            yaxis_title="Scaled Value"
+        )
+
+        st.plotly_chart(fig_m, use_container_width=True)
+
+        st.caption("🔴 Red points are outliers detected before normalization.")
+
+    elif choice == "Log Transform":
+
+        st.subheader("📉 Log Transformation")
+
+        log_data = np.log(_filled_all)
+
+        colors = [
+            "red" if i in outliers.index else "cyan"
+            for i in range(NUM_POINTS)
+        ]
+
+        fig_l = go.Figure()
+
+        fig_l.add_trace(
+            go.Scatter(
+                x=list(range(NUM_POINTS)),
+                y=log_data,
+                mode="markers",
+                marker=dict(color=colors, size=8),
+                name="Log Transform"
+            )
+        )
+
+        fig_l.update_layout(
+            template="plotly_dark",
+            title="Log Transformation",
+            height=450,
+            xaxis_title="Index",
+            yaxis_title="ln(x)"
+        )
+
+        st.plotly_chart(fig_l, use_container_width=True)
+
+        st.caption("🔴 Red points are outliers detected before transformation.")
+
+
+# ---------------- Automatic Graph ----------------
+
+if auto_graph is not None:
+    render_graph(auto_graph)
+
+# ---------------- Manual Graph ----------------
+
+if graph_choice != "None" and graph_choice != auto_graph:
+    st.markdown("---")
+    st.subheader("🔍 Selected Visualization")
+    render_graph(graph_choice)
+    
 # =====================================================
 # POST-GRAPH: PER-METHOD METRIC CARDS
 # =====================================================
@@ -630,13 +663,13 @@ for label, series in transforms.items():
         st.markdown(f"#### {label}")
 
     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-    c1.metric("Mean",   f"{series.mean():.3f}")
-    c2.metric("Median", f"{series.median():.3f}")
-    c3.metric("Std Dev", f"{series.std():.3f}")
-    c4.metric("Min",    f"{series.min():.3f}")
-    c5.metric("Max",    f"{series.max():.3f}")
-    c6.metric("Q1",     f"{series.quantile(0.25):.3f}")
-    c7.metric("Q3",     f"{series.quantile(0.75):.3f}")
+    c1.metric("Mean",   f"{series.mean():.1f}")
+    c2.metric("Median", f"{series.median():.1f}")
+    c3.metric("Std Dev", f"{series.std():.1f}")
+    c4.metric("Min",    f"{series.min():.1f}")
+    c5.metric("Max",    f"{series.max():.1f}")
+    c6.metric("Q1",     f"{series.quantile(0.25):.1f}")
+    c7.metric("Q3",     f"{series.quantile(0.75):.1f}")
 
 
     
@@ -650,13 +683,13 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Processed Dataset")
-    st.dataframe(df_processed)
+    st.dataframe(df_processed.round(1))
 
 with col2:
     st.subheader("Detected Outliers")
     if len(outliers) > 0:
         outliers_display = outliers.copy()
-        outliers_display["Z-Score"] = all_z_scores[outliers.index].round(4)
+        outliers_display["Z-Score"] = all_z_scores[outliers.index].round(1)
         outliers_display["Direction"] = outliers_display["Z-Score"].apply(
             lambda z: "⬆ High outlier" if z > 0 else "⬇ Low outlier"
         )
@@ -669,7 +702,7 @@ with col2:
             outliers_display["IQR Side"] = outliers_display["Data"].apply(
                 lambda v: "Above upper fence" if v > _iupper else "Below lower fence"
             )
-        st.dataframe(outliers_display)
+        st.dataframe(outliers_display.round(1))
     else:
         st.dataframe(outliers)
 
@@ -697,22 +730,22 @@ minmax_vals = (_filled - _min) / (_max - _min)
 log_vals    = np.log(_filled)   # safe: all values ≥ 5
 
 norm_table = pd.DataFrame({
-    "Raw Value":           _filled.round(4),
-    "Z-Score (clipped)":   zscore_vals.round(4),
-    "Robust Scaler":       robust_vals.round(4),
-    "Min-Max":             minmax_vals.round(4),
-    "Log (ln(x))":         log_vals.round(4),
+    "Raw Value":           _filled.round(1),
+    "Z-Score (clipped)":   zscore_vals.round(1),
+    "Robust Scaler":       robust_vals.round(1),
+    "Min-Max":             minmax_vals.round(1),
+    "Log (ln(x))":         log_vals.round(1),
 })
 
 # Picked point metric strip
 picked_row = norm_table.iloc[picked_idx]
 st.markdown(f"**Point #{picked_idx} across all methods:**")
 p1, p2, p3, p4, p5 = st.columns(5)
-p1.metric("Raw Value",         f"{picked_row['Raw Value']:.4f}")
-p2.metric("Z-Score (clipped)", f"{picked_row['Z-Score (clipped)']:.4f}")
-p3.metric("Robust Scaler",     f"{picked_row['Robust Scaler']:.4f}")
-p4.metric("Min-Max",           f"{picked_row['Min-Max']:.4f}")
-p5.metric("Log (ln(x))",       f"{picked_row['Log (ln(x))']:.4f}")
+p1.metric("Raw Value",         f"{picked_row['Raw Value']:.1f}")
+p2.metric("Z-Score (clipped)", f"{picked_row['Z-Score (clipped)']:.1f}")
+p3.metric("Robust Scaler",     f"{picked_row['Robust Scaler']:.1f}")
+p4.metric("Min-Max",           f"{picked_row['Min-Max']:.1f}")
+p5.metric("Log (ln(x))",       f"{picked_row['Log (ln(x))']:.1f}")
 
 st.dataframe(norm_table)
 # =====================================================
@@ -720,49 +753,119 @@ st.dataframe(norm_table)
 # =====================================================
 
 st.markdown("---")
-st.subheader("💬 Feedback")
-st.caption("We'd love to hear your thoughts!")
+
+st.subheader("💬 We'd Love Your Feedback!")
+st.caption("Help us improve the AI Preprocessing Visualizer 🚀")
 
 with st.form("feedback_form"):
-    name = st.text_input("Your Name")
-    email = st.text_input("Your Email (optional)")
-    rating = st.select_slider("Rate this app", options=["⭐", "⭐⭐", "⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"], value="⭐⭐⭐")
-    message = st.text_area("Your Feedback")
-    submitted = st.form_submit_button("Submit Feedback")
+
+    name = st.text_input(
+        "👤 Your Name",
+        placeholder="Enter your name"
+    )
+
+    email = st.text_input(
+        "📧 Your Email (optional)",
+        placeholder="you@example.com"
+    )
+
+    st.markdown("### ⭐ How would you rate this app?")
+
+    rating = st.feedback(
+        "stars",
+        key="feedback_rating"
+    )
+
+    st.markdown("### 💭 Tell us what you think")
+
+    message = st.text_area(
+        "Your Feedback",
+        placeholder="What did you like? What can we improve?",
+        height=120
+    )
+
+    submitted = st.form_submit_button(
+        "🚀 Submit Feedback"
+    )
+
 
 if submitted:
-    if message.strip() == "":
-        st.warning("Please write something before submitting.")
+
+    if rating is None:
+        st.warning("⭐ Please give us a rating before submitting.")
+
+    elif message.strip() == "":
+        st.warning("💭 Please write some feedback before submitting.")
+
     else:
+
+        rating_value = rating + 1
+
         import smtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
 
         try:
+
             sender_email = st.secrets["EMAIL_ADDRESS"]
             sender_password = st.secrets["EMAIL_PASSWORD"]
 
             msg = MIMEMultipart()
+
             msg["From"] = sender_email
             msg["To"] = "shivenwatts@gmail.com"
-            msg["Subject"] = "New Feedback — AI Preprocessing Visualizer"
+            msg["Subject"] = (
+                f"⭐ New Feedback — {rating_value}/5 Stars"
+            )
 
             body = f"""
-New feedback received:
+New feedback received from AI Preprocessing Visualizer
 
-Name: {name if name else 'Anonymous'}
-Email: {email if email else 'Not provided'}
-Rating: {rating}
+----------------------------------------
 
-Message:
+Name:
+{name if name else 'Anonymous'}
+
+Email:
+{email if email else 'Not provided'}
+
+Rating:
+{rating_value}/5 ⭐
+
+Feedback:
 {message}
-            """
-            msg.attach(MIMEText(body, "plain"))
 
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-                server.login(sender_email, sender_password)
-                server.sendmail(sender_email, "shivenwatts@gmail.com", msg.as_string())
+----------------------------------------
+"""
 
-            st.success("✅ Thank you! Your feedback has been sent.")
+            msg.attach(
+                MIMEText(body, "plain")
+            )
+
+            with smtplib.SMTP_SSL(
+                "smtp.gmail.com",
+                465
+            ) as server:
+
+                server.login(
+                    sender_email,
+                    sender_password
+                )
+
+                server.sendmail(
+                    sender_email,
+                    "shivenwatts@gmail.com",
+                    msg.as_string()
+                )
+
+            st.success(
+                f"🎉 Thank you! Your {rating_value}/5 ⭐ feedback has been submitted."
+            )
+
+            st.balloons()
+
         except Exception as e:
-            st.error(f"Something went wrong: {e}")
+
+            st.error(
+                f"❌ Something went wrong while sending feedback: {e}"
+            )
