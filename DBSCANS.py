@@ -244,12 +244,11 @@ def run_dbscan():
     # HEADER
     # ══════════════════════════════════════════════════════════════════════════════
     st.markdown("""
-    <div class="title-block">
-      <h1>DBSCAN — Live Clustering Visualizer</h1>
-      <p>Created by <b>Shiven Watts</b> &nbsp;·&nbsp; Under guidance of <b>Dr. Abhinay Kumar</b></p>
-    </div>
-    """, unsafe_allow_html=True)
-
+<div class="title-block">
+  <h1>DBSCAN — Live Clustering Visualizer</h1>
+  <p>Created by <b>Shiven Watts and raunak kareer</b></p>
+</div>
+""", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════════
     # COMPUTE / CACHE FRAMES
