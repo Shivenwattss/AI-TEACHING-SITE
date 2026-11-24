@@ -142,11 +142,11 @@ def run_kmeans():
     st.title("K-Means Clustering — Step-by-Step Visualizer")
     st.caption("Walk through every iteration of K-Means to understand exactly how it works.")
     st.markdown(
-        "<p style='color:#888; margin-top:-8px; font-size:0.9rem;'>"
-        "Created by <b>Shiven Watts</b> &nbsp;·&nbsp; Under guidance of <b>Dr. Abhinay Kumar</b>"
-        "</p>",
-        unsafe_allow_html=True,
-    )
+    "<p style='color:#888; margin-top:-8px; font-size:0.9rem;'>"
+    "Created by <b>Shiven Watts</b>"
+    "</p>",
+    unsafe_allow_html=True,
+)
 
     if "step_index" not in st.session_state:
         st.session_state.step_index = 0
